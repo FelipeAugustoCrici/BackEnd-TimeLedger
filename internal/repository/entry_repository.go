@@ -255,17 +255,19 @@ func (r *EntryRepository) ListCategories(userID string) ([]string, error) {
 // Buscamos os registros e somamos em Go após descriptografar.
 
 func (r *EntryRepository) Summary(userID, startDate, endDate string) (*model.DashboardSummary, error) {
-	var totalMinutes int
+	var billableMinutes int
 	var totalAmount float64
+	var totalCount int
 	uniqueDays := map[string]struct{}{}
 
+	// Busca todos os lançamentos do período com flag billable
 	rows, err := r.db.Query(`
-		SELECT te.date::text, te.time_spent_minutes, te.total_amount
+		SELECT te.date::text, te.time_spent_minutes, te.total_amount,
+		       COALESCE(c.billable, true) as billable
 		FROM task_entries te
 		LEFT JOIN categories c ON c.name = te.category
 		WHERE te.user_id = $1
-		  AND te.date BETWEEN $2 AND $3
-		  AND (c.billable IS NULL OR c.billable = true)`,
+		  AND te.date BETWEEN $2 AND $3`,
 		userID, startDate, endDate,
 	)
 	if err != nil {
@@ -273,30 +275,35 @@ func (r *EntryRepository) Summary(userID, startDate, endDate string) (*model.Das
 	}
 	defer rows.Close()
 
-	count := 0
 	for rows.Next() {
 		var date, totalAmountEnc string
 		var minutes int
-		if err := rows.Scan(&date, &minutes, &totalAmountEnc); err != nil {
+		var billable bool
+		if err := rows.Scan(&date, &minutes, &totalAmountEnc, &billable); err != nil {
 			return nil, err
 		}
+		totalCount++
+		uniqueDays[date] = struct{}{}
+
+		if !billable {
+			continue
+		}
+
 		amount, err := decryptRate(totalAmountEnc)
 		if err != nil {
 			return nil, fmt.Errorf("decrypt total_amount in summary: %w", err)
 		}
-		totalMinutes += minutes
+		billableMinutes += minutes
 		totalAmount += amount
-		uniqueDays[date] = struct{}{}
-		count++
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
 	s := &model.DashboardSummary{
-		TotalHours:  float64(totalMinutes) / 60.0,
+		TotalHours:  float64(billableMinutes) / 60.0,
 		TotalAmount: totalAmount,
-		TotalTasks:  count,
+		TotalTasks:  totalCount,
 	}
 	if len(uniqueDays) > 0 {
 		s.AvgHoursPerDay = s.TotalHours / float64(len(uniqueDays))
