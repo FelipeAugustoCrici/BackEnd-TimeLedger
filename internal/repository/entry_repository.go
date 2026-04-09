@@ -310,3 +310,50 @@ func (r *EntryRepository) Summary(userID, startDate, endDate string) (*model.Das
 	}
 	return s, nil
 }
+
+// ApplyRateToEntries re-aplica um hourly_rate em todas as entries do usuário,
+// recalculando total_amount = (time_spent_minutes / 60) * hourlyRate.
+func (r *EntryRepository) ApplyRateToEntries(userID string, hourlyRate float64) (int, error) {
+	rows, err := r.db.Query(
+		`SELECT id, time_spent_minutes FROM task_entries WHERE user_id = $1`, userID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	type row struct {
+		id      string
+		minutes int
+	}
+	var records []row
+	for rows.Next() {
+		var rec row
+		if err := rows.Scan(&rec.id, &rec.minutes); err != nil {
+			return 0, err
+		}
+		records = append(records, rec)
+	}
+
+	updated := 0
+	for _, rec := range records {
+		totalAmount := (float64(rec.minutes) / 60.0) * hourlyRate
+		hourlyEnc, err := encryptRate(hourlyRate)
+		if err != nil {
+			return updated, fmt.Errorf("encrypt hourly_rate: %w", err)
+		}
+		totalEnc, err := encryptRate(totalAmount)
+		if err != nil {
+			return updated, fmt.Errorf("encrypt total_amount: %w", err)
+		}
+		_, err = r.db.Exec(
+			`UPDATE task_entries SET hourly_rate=$1, total_amount=$2, updated_at=NOW() WHERE id=$3`,
+			hourlyEnc, totalEnc, rec.id,
+		)
+		if err != nil {
+			return updated, fmt.Errorf("update entry %s: %w", rec.id, err)
+		}
+		updated++
+	}
+	return updated, nil
+}

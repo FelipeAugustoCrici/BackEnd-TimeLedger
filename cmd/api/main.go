@@ -42,7 +42,7 @@ func main() {
 	timerSvc    := service.NewTimerService(timerRepo)
 
 	// ─── Handlers ─────────────────────────────────────────────────────────────
-	entryH    := handler.NewEntryHandler(entrySvc)
+	entryH    := handler.NewEntryHandler(entrySvc, settingsSvc)
 	settingsH := handler.NewSettingsHandler(settingsSvc)
 	authH     := handler.NewAuthHandler(authSvc)
 	categoryH := handler.NewCategoryHandler(categoryRepo)
@@ -79,6 +79,7 @@ func main() {
 		{
 			entries.GET("",                   entryH.List)
 			entries.POST("",                  entryH.Create)
+			entries.POST("/apply-rate",       entryH.ApplyRate)
 			entries.GET("/:id",               entryH.GetByID)
 			entries.PUT("/:id",               entryH.Update)
 			entries.DELETE("/:id",            entryH.Delete)

@@ -56,3 +56,7 @@ func (s *EntryService) ListCategories(userID string) ([]string, error) {
 func (s *EntryService) Summary(userID, startDate, endDate string) (*model.DashboardSummary, error) {
 	return s.repo.Summary(userID, startDate, endDate)
 }
+
+func (s *EntryService) ApplyRateToEntries(userID string, hourlyRate float64) (int, error) {
+	return s.repo.ApplyRateToEntries(userID, hourlyRate)
+}

@@ -12,11 +12,12 @@ import (
 )
 
 type EntryHandler struct {
-	svc *service.EntryService
+	svc         *service.EntryService
+	settingsSvc *service.SettingsService
 }
 
-func NewEntryHandler(svc *service.EntryService) *EntryHandler {
-	return &EntryHandler{svc: svc}
+func NewEntryHandler(svc *service.EntryService, settingsSvc *service.SettingsService) *EntryHandler {
+	return &EntryHandler{svc: svc, settingsSvc: settingsSvc}
 }
 
 // userIDFromCtx extrai o user_id dos claims JWT armazenados no contexto Gin.
@@ -219,4 +220,33 @@ func (h *EntryHandler) Dashboard(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": summary})
+}
+
+// POST /entries/apply-rate
+// Re-aplica o hourly_rate atual das settings em todas as entries do usuário,
+// recalculando total_amount = (time_spent_minutes / 60) * hourly_rate.
+func (h *EntryHandler) ApplyRate(c *gin.Context) {
+	userID, ok := userIDFromCtx(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "usuário não autenticado"})
+		return
+	}
+
+	settings, err := h.settingsSvc.Get(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	updated, err := h.svc.ApplyRateToEntries(userID, settings.HourlyRate)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":      "hourly_rate aplicado com sucesso",
+		"hourly_rate":  settings.HourlyRate,
+		"entries_updated": updated,
+	})
 }
