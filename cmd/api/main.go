@@ -43,6 +43,7 @@ func main() {
 
 	// ─── Handlers ─────────────────────────────────────────────────────────────
 	entryH    := handler.NewEntryHandler(entrySvc, settingsSvc)
+	reportH   := handler.NewReportHandler(entrySvc)
 	settingsH := handler.NewSettingsHandler(settingsSvc)
 	authH     := handler.NewAuthHandler(authSvc)
 	categoryH := handler.NewCategoryHandler(categoryRepo)
@@ -85,6 +86,12 @@ func main() {
 			entries.DELETE("/:id",            entryH.Delete)
 			entries.GET("/meta/projects",     entryH.ListProjects)
 			entries.GET("/meta/categories",   entryH.ListCategories)
+		}
+
+		reports := protected.Group("/reports")
+		{
+			reports.GET("/entries",           reportH.GetEntries)
+			reports.GET("/entries-paginated", reportH.GetEntriesPaginated)
 		}
 
 		protected.GET("/settings", settingsH.Get)

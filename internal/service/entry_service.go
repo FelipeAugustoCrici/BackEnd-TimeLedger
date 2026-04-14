@@ -21,6 +21,14 @@ func (s *EntryService) List(f model.EntryFilters) ([]model.TaskEntry, error) {
 	return entries, err
 }
 
+func (s *EntryService) ListPaginated(f model.EntryFilters) ([]model.TaskEntry, int, error) {
+	entries, total, err := s.repo.ListPaginated(f)
+	if entries == nil {
+		entries = []model.TaskEntry{}
+	}
+	return entries, total, err
+}
+
 func (s *EntryService) GetByID(id string) (*model.TaskEntry, error) {
 	return s.repo.GetByID(id)
 }

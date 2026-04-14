@@ -107,6 +107,117 @@ func (r *EntryRepository) List(f model.EntryFilters) ([]model.TaskEntry, error) 
 	return entries, rows.Err()
 }
 
+func (r *EntryRepository) ListPaginated(f model.EntryFilters) ([]model.TaskEntry, int, error) {
+	// Primeiro, contar o total de registros
+	countQuery := `SELECT COUNT(*) FROM task_entries WHERE user_id = $1`
+	args := []any{f.UserID}
+	i := 2
+
+	if f.StartDate != "" {
+		countQuery += fmt.Sprintf(" AND date >= $%d", i); args = append(args, f.StartDate); i++
+	}
+	if f.EndDate != "" {
+		countQuery += fmt.Sprintf(" AND date <= $%d", i); args = append(args, f.EndDate); i++
+	}
+	if f.Status != "" {
+		countQuery += fmt.Sprintf(" AND status = $%d", i); args = append(args, f.Status); i++
+	}
+	if f.Category != "" {
+		countQuery += fmt.Sprintf(" AND category = $%d", i); args = append(args, f.Category); i++
+	}
+	if f.Project != "" {
+		countQuery += fmt.Sprintf(" AND project = $%d", i); args = append(args, f.Project); i++
+	}
+	if f.Search != "" {
+		countQuery += fmt.Sprintf(" AND (task_code ILIKE $%d OR description ILIKE $%d)", i, i+1)
+		like := "%" + strings.TrimSpace(f.Search) + "%"
+		args = append(args, like, like)
+		i += 2
+	}
+
+	var total int
+	err := r.db.QueryRow(countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Agora buscar os dados paginados
+	query := `
+		SELECT id, date::text, task_code, description, time_spent_minutes,
+		       hourly_rate, total_amount, status, category, project, notes,
+		       start_time, end_time, created_at, updated_at
+		FROM task_entries WHERE user_id = $1`
+
+	// Resetar args para a query principal
+	args = []any{f.UserID}
+	i = 2
+
+	if f.StartDate != "" {
+		query += fmt.Sprintf(" AND date >= $%d", i); args = append(args, f.StartDate); i++
+	}
+	if f.EndDate != "" {
+		query += fmt.Sprintf(" AND date <= $%d", i); args = append(args, f.EndDate); i++
+	}
+	if f.Status != "" {
+		query += fmt.Sprintf(" AND status = $%d", i); args = append(args, f.Status); i++
+	}
+	if f.Category != "" {
+		query += fmt.Sprintf(" AND category = $%d", i); args = append(args, f.Category); i++
+	}
+	if f.Project != "" {
+		query += fmt.Sprintf(" AND project = $%d", i); args = append(args, f.Project); i++
+	}
+	if f.Search != "" {
+		query += fmt.Sprintf(" AND (task_code ILIKE $%d OR description ILIKE $%d)", i, i+1)
+		like := "%" + strings.TrimSpace(f.Search) + "%"
+		args = append(args, like, like)
+		i += 2
+	}
+
+	// Ordenação
+	orderBy := "date DESC, created_at DESC"
+	if f.SortField != "" {
+		switch f.SortField {
+		case "date":
+			orderBy = "date"
+		case "time_spent_minutes":
+			orderBy = "time_spent_minutes"
+		case "total_amount":
+			orderBy = "total_amount"
+		default:
+			orderBy = "date"
+		}
+		if f.SortDir == "asc" {
+			orderBy += " ASC"
+		} else {
+			orderBy += " DESC"
+		}
+		orderBy += ", created_at DESC"
+	}
+	query += " ORDER BY " + orderBy
+
+	// Paginação
+	offset := (f.Page - 1) * f.PerPage
+	query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", i, i+1)
+	args = append(args, f.PerPage, offset)
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var entries []model.TaskEntry
+	for rows.Next() {
+		e, err := scanEntry(rows)
+		if err != nil {
+			return nil, 0, err
+		}
+		entries = append(entries, *e)
+	}
+	return entries, total, rows.Err()
+}
+
 // ─── GetByID ──────────────────────────────────────────────────────────────────
 
 func (r *EntryRepository) GetByID(id string) (*model.TaskEntry, error) {

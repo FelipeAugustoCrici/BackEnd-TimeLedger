@@ -80,6 +80,53 @@ func (h *EntryHandler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": entries, "total": len(entries)})
 }
 
+// GET /entries/all - Lista todas as entries sem paginação
+func (h *EntryHandler) ListAll(c *gin.Context) {
+	userID, ok := userIDFromCtx(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "usuário não autenticado"})
+		return
+	}
+
+	f := model.EntryFilters{
+		UserID:    userID,
+		StartDate: c.Query("start_date"),
+		EndDate:   c.Query("end_date"),
+		Status:    c.Query("status"),
+		Category:  c.Query("category"),
+		Project:   c.Query("project"),
+		Search:    c.Query("search"),
+	}
+
+	// Atalhos de período
+	switch c.Query("period") {
+	case "today":
+		today := time.Now().Format("2006-01-02")
+		f.StartDate, f.EndDate = today, today
+	case "week":
+		now := time.Now()
+		weekday := int(now.Weekday())
+		if weekday == 0 {
+			weekday = 7
+		}
+		monday := now.AddDate(0, 0, -(weekday - 1))
+		sunday := monday.AddDate(0, 0, 6)
+		f.StartDate = monday.Format("2006-01-02")
+		f.EndDate = sunday.Format("2006-01-02")
+	case "month":
+		now := time.Now()
+		f.StartDate = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local).Format("2006-01-02")
+		f.EndDate = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local).AddDate(0, 1, -1).Format("2006-01-02")
+	}
+
+	entries, err := h.svc.List(f)  // Usa List sem paginação
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": entries, "total": len(entries)})
+}
+
 // GET /entries/:id
 func (h *EntryHandler) GetByID(c *gin.Context) {
 	entry, err := h.svc.GetByID(c.Param("id"))

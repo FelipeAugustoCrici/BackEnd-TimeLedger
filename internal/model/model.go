@@ -70,6 +70,10 @@ type EntryFilters struct {
 	Category  string
 	Project   string
 	Search    string
+	Page      int
+	PerPage   int
+	SortField string
+	SortDir   string
 }
 
 // UserSettings configurações do usuário (singleton).
@@ -109,4 +113,12 @@ type DashboardSummary struct {
 	TotalAmount    float64 `json:"total_amount"`
 	TotalTasks     int     `json:"total_tasks"`
 	AvgHoursPerDay float64 `json:"avg_hours_per_day"`
+}
+
+// PaginatedResponse resposta paginada genérica.
+type PaginatedResponse struct {
+	Data    interface{} `json:"data"`
+	Total   int         `json:"total"`
+	Page    int         `json:"page"`
+	PerPage int         `json:"per_page"`
 }
