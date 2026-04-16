@@ -29,15 +29,22 @@ CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions (token_hash);
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id    ON sessions (user_id);
 
 CREATE TABLE IF NOT EXISTS user_settings (
-  id               UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id          UUID        UNIQUE REFERENCES users(id) ON DELETE CASCADE,
-  hourly_rate      TEXT        NOT NULL DEFAULT '0',
-  daily_hours_goal TEXT        NOT NULL DEFAULT '8',
-  monthly_goal     TEXT        NOT NULL DEFAULT '',
-  updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id                    UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id               UUID        UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  hourly_rate           TEXT        NOT NULL DEFAULT '0',
+  daily_hours_goal      TEXT        NOT NULL DEFAULT '8',
+  monthly_goal          TEXT        NOT NULL DEFAULT '',
+  default_category_name VARCHAR(255) DEFAULT 'Desenvolvimento',
+  category_codes        TEXT        DEFAULT '[]',
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_user_settings_user_id ON user_settings (user_id);
+
+-- Adicionar colunas de categoria se não existirem (para bancos existentes)
+ALTER TABLE user_settings 
+ADD COLUMN IF NOT EXISTS default_category_name VARCHAR(255) DEFAULT 'Desenvolvimento',
+ADD COLUMN IF NOT EXISTS category_codes TEXT DEFAULT '[]';
 
 CREATE TABLE IF NOT EXISTS task_entries (
   id                 UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
