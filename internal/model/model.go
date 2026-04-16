@@ -78,18 +78,22 @@ type EntryFilters struct {
 
 // UserSettings configurações do usuário (singleton).
 type UserSettings struct {
-	ID             string    `json:"id"`
-	HourlyRate     float64   `json:"hourly_rate"`
-	DailyHoursGoal float64   `json:"daily_hours_goal"`
-	MonthlyGoal    float64   `json:"monthly_goal"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID                  string    `json:"id"`
+	HourlyRate          float64   `json:"hourly_rate"`
+	DailyHoursGoal      float64   `json:"daily_hours_goal"`
+	MonthlyGoal         float64   `json:"monthly_goal"`
+	DefaultCategoryName *string   `json:"default_category_name,omitempty"`
+	CategoryCodes       *string   `json:"category_codes,omitempty"` // JSON string
+	UpdatedAt           time.Time `json:"updated_at"`
 }
 
 // UpdateSettingsInput payload para atualizar configurações.
 type UpdateSettingsInput struct {
-	HourlyRate     float64 `json:"hourly_rate"      binding:"required,gt=0"`
-	DailyHoursGoal float64 `json:"daily_hours_goal" binding:"required,gt=0"`
-	MonthlyGoal    float64 `json:"monthly_goal"`
+	HourlyRate          float64 `json:"hourly_rate"      binding:"required,gt=0"`
+	DailyHoursGoal      float64 `json:"daily_hours_goal" binding:"required,gt=0"`
+	MonthlyGoal         float64 `json:"monthly_goal"`
+	DefaultCategoryName *string `json:"default_category_name"`
+	CategoryCodes       *string `json:"category_codes"` // JSON string
 }
 
 // Category representa uma categoria de lançamento com cor.

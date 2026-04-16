@@ -107,3 +107,21 @@ CREATE INDEX IF NOT EXISTS idx_task_entries_user_id ON task_entries (user_id);
 -- ─── 010: User settings per user ─────────────────────────────────────────────
 ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_user_settings_user_id ON user_settings (user_id);
+
+-- ─── 011: Active timers ──────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS active_timers (
+  id              UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id         UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status          VARCHAR(20) NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'paused')),
+  started_at      TIMESTAMPTZ,
+  elapsed_seconds INT         NOT NULL DEFAULT 0,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_active_timers_user_id ON active_timers (user_id);
+
+-- ─── 012: Category settings ──────────────────────────────────────────────────
+ALTER TABLE user_settings 
+ADD COLUMN IF NOT EXISTS default_category_name VARCHAR(255) DEFAULT 'Desenvolvimento',
+ADD COLUMN IF NOT EXISTS category_codes TEXT DEFAULT '[]';

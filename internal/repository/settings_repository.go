@@ -22,21 +22,27 @@ func (r *SettingsRepository) Get(userID string) (*model.UserSettings, error) {
 	var hourlyEnc, goalEnc, monthlyEnc string
 
 	err := r.db.QueryRow(`
-		SELECT id, hourly_rate, daily_hours_goal, monthly_goal, updated_at
+		SELECT id, hourly_rate, daily_hours_goal, monthly_goal, 
+		       default_category_name, category_codes, updated_at
 		FROM user_settings WHERE user_id = $1`, userID,
-	).Scan(&s.ID, &hourlyEnc, &goalEnc, &monthlyEnc, &s.UpdatedAt)
+	).Scan(&s.ID, &hourlyEnc, &goalEnc, &monthlyEnc, 
+		&s.DefaultCategoryName, &s.CategoryCodes, &s.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		// Cria settings padrão para o novo usuário
 		defaultHourly, _ := crypto.EncryptFloat64(0)
 		defaultGoal, _ := crypto.EncryptFloat64(8)
 		defaultMonthly, _ := crypto.EncryptFloat64(0)
+		defaultCategory := "Desenvolvimento"
+		defaultCodes := "[]"
+		
 		err = r.db.QueryRow(`
-			INSERT INTO user_settings (user_id, hourly_rate, daily_hours_goal, monthly_goal)
-			VALUES ($1, $2, $3, $4)
-			RETURNING id, hourly_rate, daily_hours_goal, monthly_goal, updated_at`,
-			userID, defaultHourly, defaultGoal, defaultMonthly,
-		).Scan(&s.ID, &hourlyEnc, &goalEnc, &monthlyEnc, &s.UpdatedAt)
+			INSERT INTO user_settings (user_id, hourly_rate, daily_hours_goal, monthly_goal, default_category_name, category_codes)
+			VALUES ($1, $2, $3, $4, $5, $6)
+			RETURNING id, hourly_rate, daily_hours_goal, monthly_goal, default_category_name, category_codes, updated_at`,
+			userID, defaultHourly, defaultGoal, defaultMonthly, defaultCategory, defaultCodes,
+		).Scan(&s.ID, &hourlyEnc, &goalEnc, &monthlyEnc, 
+			&s.DefaultCategoryName, &s.CategoryCodes, &s.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -77,14 +83,27 @@ func (r *SettingsRepository) Update(userID string, in model.UpdateSettingsInput)
 	var s model.UserSettings
 	var hourlyEncOut, goalEncOut, monthlyEncOut string
 
+	// Preparar valores para categoria padrão e códigos
+	defaultCategoryName := "Desenvolvimento"
+	if in.DefaultCategoryName != nil {
+		defaultCategoryName = *in.DefaultCategoryName
+	}
+	
+	categoryCodes := "[]"
+	if in.CategoryCodes != nil {
+		categoryCodes = *in.CategoryCodes
+	}
+
 	err = r.db.QueryRow(`
-		INSERT INTO user_settings (user_id, hourly_rate, daily_hours_goal, monthly_goal)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO user_settings (user_id, hourly_rate, daily_hours_goal, monthly_goal, default_category_name, category_codes)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		ON CONFLICT (user_id) DO UPDATE
-		  SET hourly_rate=$2, daily_hours_goal=$3, monthly_goal=$4, updated_at=NOW()
-		RETURNING id, hourly_rate, daily_hours_goal, monthly_goal, updated_at`,
-		userID, hourlyEnc, goalEnc, monthlyEnc,
-	).Scan(&s.ID, &hourlyEncOut, &goalEncOut, &monthlyEncOut, &s.UpdatedAt)
+		  SET hourly_rate=$2, daily_hours_goal=$3, monthly_goal=$4, 
+		      default_category_name=$5, category_codes=$6, updated_at=NOW()
+		RETURNING id, hourly_rate, daily_hours_goal, monthly_goal, default_category_name, category_codes, updated_at`,
+		userID, hourlyEnc, goalEnc, monthlyEnc, defaultCategoryName, categoryCodes,
+	).Scan(&s.ID, &hourlyEncOut, &goalEncOut, &monthlyEncOut, 
+		&s.DefaultCategoryName, &s.CategoryCodes, &s.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
